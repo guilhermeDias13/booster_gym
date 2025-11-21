@@ -329,15 +329,15 @@ class T2(BaseTask):
         self.root_states[env_ids, :2] += self.env_origins[env_ids, :2]
         # self.root_states[env_ids, :2] = apply_randomization(self.root_states[env_ids, :2], self.cfg["randomization"].get("init_base_pos_xy"))
         self.root_states[env_ids, 2] += self.terrain.terrain_heights(self.root_states[env_ids, :2])
-        self.root_states[env_ids, 3:7] = quat_from_euler_xyz(
-            torch.zeros(len(env_ids), dtype=torch.float, device=self.device),
-            torch.zeros(len(env_ids), dtype=torch.float, device=self.device),
-            torch.rand(len(env_ids), device=self.device) * (2 * torch.pi),
-        )
-        # self.root_states[env_ids, 7:9] = apply_randomization(
-            # torch.zeros(len(env_ids), 2, dtype=torch.float, device=self.device),
-            # self.cfg["randomization"].get("init_base_lin_vel_xy"),
+        # self.root_states[env_ids, 3:7] = quat_from_euler_xyz(
+        #     torch.zeros(len(env_ids), dtype=torch.float, device=self.device),
+        #     torch.zeros(len(env_ids), dtype=torch.float, device=self.device),
+        #     torch.rand(len(env_ids), device=self.device) * (2 * torch.pi),
         # )
+        self.root_states[env_ids, 7:9] = apply_randomization(
+            torch.zeros(len(env_ids), 2, dtype=torch.float, device=self.device),
+            self.cfg["randomization"].get("init_base_lin_vel_xy"),
+        )
         self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
 
     def _teleport_robot(self):
