@@ -172,15 +172,15 @@ noise:
 
 randomization:
   init_dof_pos:
-    range: [0., 0.05]
+    range: [0., 0.0]
     operation: "additive"
     distribution: "gaussian"
   init_base_pos_xy:
-    range: [-1., 1.]
+    range: [0., 0.0]
     operation: "additive"
     distribution: "uniform"
   init_base_lin_vel_xy:
-    range: [0., 0.1]
+    range: [0., 0.0]
     operation: "additive"
     distribution: "gaussian"
 
