@@ -277,7 +277,7 @@ rewards:
     feet_distance: -1.
     feet_swing: 3.
   episode_length_s: 8.
-  terminate_height: 0.6
+  terminate_height: 0.45
   terminate_vel: 50.
   terminate_contacts_on: ["Trunk", "Hip", "Thigh"]
   penalize_contacts_on: ["Trunk", "H1", "H2", "AL", "AR", "Waist", "Hip", "Shank", "Ankle"]
