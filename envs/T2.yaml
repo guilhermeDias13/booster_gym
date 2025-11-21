@@ -82,7 +82,7 @@ asset:
                   [-0.1015, -0.05, -0.03]] # x,y,z [m]
 
 init_state:
-  pos: [0.0, 0.0, 0.0] # x,y,z [m]
+  pos: [0.0, 0.0, 0.1] # x,y,z [m]
   rot: [0.0, 0.0, 0.0, 1.0] # x,y,z,w [quat]
   lin_vel: [0.0, 0.0, 0.0]  # x,y,z [m/s]
   ang_vel: [0.0, 0.0, 0.0]  # x,y,z [rad/s]
@@ -277,9 +277,9 @@ rewards:
     feet_distance: -1.
     feet_swing: 3.
   episode_length_s: 8.
-  terminate_height: 0.45
+  terminate_height: 0.4
   terminate_vel: 50.
-  terminate_contacts_on: ["Trunk", "Hip", "Thigh"]
+  terminate_contacts_on: ["Hip", "Thigh"]
   penalize_contacts_on: ["Trunk", "H1", "H2", "AL", "AR", "Waist", "Hip", "Shank", "Ankle"]
   only_positive_rewards: true # if true negative total rewards are clipped at zero (avoids early termination problems)
   tracking_sigma: 0.25 # tracking reward = exp(-error^2/sigma)
