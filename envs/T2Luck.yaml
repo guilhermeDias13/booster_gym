@@ -95,7 +95,7 @@ control:
   decimation: 10
 
 terrain:
-  type: "trimesh" # "plane" or "trimesh"
+  type: "plane" # "plane" or "trimesh"
   static_friction: 1.0  # [-]
   dynamic_friction: 1.0  # [-]
   restitution: 0.        # [-]
@@ -184,7 +184,7 @@ randomization:
     operation: "additive"
     distribution: "gaussian"
 
-  kick_interval_s: 2.
+  kick_interval_s: 20000.
   kick_lin_vel:
     range: [0., 0.1]
     operation: "additive"
@@ -194,7 +194,7 @@ randomization:
     operation: "additive"
     distribution: "gaussian"
 
-  push_interval_s: 5.
+  push_interval_s: 50000.
   push_duration_s: 1.
   push_force:
     range: [0., 10.]
