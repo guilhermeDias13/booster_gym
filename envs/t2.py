@@ -332,7 +332,7 @@ class T2(BaseTask):
         self.root_states[env_ids, 3:7] = quat_from_euler_xyz(
             torch.zeros(len(env_ids), dtype=torch.float, device=self.device),
             torch.zeros(len(env_ids), dtype=torch.float, device=self.device),
-            torch.rand(len(env_ids), device=self.device) * (2 * torch.pi),
+            2 * torch.pi,
         )
         self.root_states[env_ids, 7:9] = apply_randomization(
             torch.zeros(len(env_ids), 2, dtype=torch.float, device=self.device),
