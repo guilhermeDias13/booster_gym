@@ -8,7 +8,7 @@ basic:
   description: ""
 
 env:
-  num_envs: 1
+  num_envs: 1024
   num_observations: 47
   num_privileged_obs: 14
   num_actions: 12
