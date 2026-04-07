@@ -564,9 +564,17 @@ class T1(BaseTask):
 
     def _check_termination(self):
         """Check if environments need to be reset"""
-        term_contact = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1.0, dim=1)
-        term_vel = self.root_states[:, 7:13].square().sum(dim=-1) > self.cfg["rewards"]["terminate_vel"]
-        term_height = self.base_pos[:, 2] - self.terrain.terrain_heights(self.base_pos) < self.cfg["rewards"]["terminate_height"]
+        if len(self.termination_contact_indices) > 0:
+            term_contact_norms = torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1)
+            max_term_contact_force = term_contact_norms.max(dim=1).values
+            term_contact = torch.any(term_contact_norms > 1.0, dim=1)
+        else:
+            max_term_contact_force = torch.zeros(self.num_envs, device=self.device, dtype=torch.float)
+            term_contact = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        root_vel_sq = self.root_states[:, 7:13].square().sum(dim=-1)
+        base_clearance = self.base_pos[:, 2] - self.terrain.terrain_heights(self.base_pos)
+        term_vel = root_vel_sq > self.cfg["rewards"]["terminate_vel"]
+        term_height = base_clearance < self.cfg["rewards"]["terminate_height"]
         term_episode_timeout = self.episode_length_buf > np.ceil(self.cfg["rewards"]["episode_length_s"] / self.dt)
         term_cmd_resample = self.episode_length_buf == self.cmd_resample_time
 
@@ -592,6 +600,12 @@ class T1(BaseTask):
         )
         self.extras["term_primary"] = primary
         self.extras["trunc_cmd_resample"] = term_cmd_resample.float()
+        self.extras["term_metrics"] = {
+            "root_vel_sq": root_vel_sq.float(),
+            "base_clearance": base_clearance.float(),
+            "max_term_contact_force": max_term_contact_force.float(),
+            "episode_length": self.episode_length_buf.float(),
+        }
 
     def _compute_reward(self):
         """Compute rewards

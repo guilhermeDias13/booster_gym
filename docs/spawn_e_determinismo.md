@@ -234,7 +234,7 @@ Em `_check_termination` (`t1.py` / `t2.py`):
 - **`reset_buf`** (fim de episódio com reset físico): contato em `terminate_contacts_on`, velocidade da raiz acima de `terminate_vel`, altura da base abaixo de `terminate_height`, ou timeout longo (`episode_length_s`).
 - **`time_out_buf`** (truncagem para o PPO / bootstrap): inclui o timeout longo **e** o marco `episode_length_buf == cmd_resample_time` (reamostragem de comando). Este último **não** entra em `reset_buf`: o episódio continua, só se marcam truncações para o algoritmo.
 
-Em cada passo, `extras["time_outs"]` reflete o `time_out_buf` atual (para o [`Runner`](../utils/runner.py) gravar no buffer). Os dicionários `extras["term_causes"]`, `extras["term_primary"]` e `extras["trunc_cmd_resample"]` descrevem causas de **reset** e a fração de envs em reamostragem de comando.
+Em cada passo, `extras["time_outs"]` reflete o `time_out_buf` atual (para o [`Runner`](../utils/runner.py) gravar no buffer). Os dicionários `extras["term_causes"]`, `extras["term_primary"]`, `extras["term_metrics"]` e `extras["trunc_cmd_resample"]` descrevem causas de **reset**, grandezas no instante do reset e a fração de envs em reamostragem de comando.
 
 Com `runner.log_termination_reasons: true` (padrão no código se a chave faltar), o [`Recorder`](../utils/recorder.py) regista por iteração de treino:
 
@@ -242,6 +242,12 @@ Com `runner.log_termination_reasons: true` (padrão no código se a chave faltar
 |---------|-------------|
 | `termination/frac_contact`, `frac_vel`, `frac_height`, `frac_episode_timeout` | Média das flags (0–1) nos ambientes que fizeram **reset** na janela do rollout; podem sobrepor-se se várias condições forem verdadeiras no mesmo passo. |
 | `termination/primary/contact`, `…/vel`, `…/height`, `…/episode_timeout` | Fração dos resets onde a causa “primária” foi essa, com prioridade: contacto > velocidade > altura > timeout de episódio (soma ~1 sobre os resets contabilizados). |
+| `termination/at_reset/mean_root_vel_sq` | Média de \(v_x^2+v_y^2+v_z^2+\omega_x^2+\omega_y^2+\omega_z^2\) da raiz **em todos os resets** do rollout — é a mesma grandeza comparada com `rewards.terminate_vel`. |
+| `termination/at_reset/mean_base_clearance_m` | Média da altura da base acima do terreno (m) nesses resets. |
+| `termination/at_reset/mean_max_term_contact_force`, `…/mean_episode_length` | Força máxima (norma) nos corpos de terminação de contato; comprimento do episódio em passos de controlo. |
+| `termination/when_vel_cause/mean_root_vel_sq` | Média de `root_vel_sq` só nos resets em que a flag de velocidade contribuiu (≥ limiar `terminate_vel`). |
+| `termination/when_height_cause/mean_base_clearance_m` | Clearance no reset só quando a causa de altura contribuiu. |
+| `termination/when_contact_cause/…`, `when_episode_timeout/…` | Métricas condicionadas a contacto e a timeout de episódio. |
 | `truncation/frac_cmd_resample` | Média ao longo do rollout da fração de envs com `episode_length_buf == cmd_resample_time` (truncação por comando, **não** reset). |
 
 Defina `runner.log_termination_reasons: false` no YAML para desligar estes escalares.

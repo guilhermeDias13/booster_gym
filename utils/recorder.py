@@ -32,6 +32,7 @@ class Recorder:
         self._term_cause_lists = {"contact": [], "vel": [], "height": [], "episode_timeout": []}
         self._term_primary_codes = []
         self._trunc_cmd_resample_means = []
+        self._term_metric_lists = {}
 
         with open(os.path.join(self.dir, "config.yaml"), "w") as file:
             yaml.dump(self.cfg, file)
@@ -45,6 +46,7 @@ class Recorder:
         term_causes=None,
         term_primary=None,
         trunc_cmd_resample_mean=None,
+        term_metrics=None,
     ):
         if self.episode_steps is None:
             self.episode_steps = torch.zeros_like(done, dtype=int)
@@ -74,6 +76,34 @@ class Recorder:
                 self._term_primary_codes.append(val.item())
         if log_term and trunc_cmd_resample_mean is not None:
             self._trunc_cmd_resample_means.append(float(trunc_cmd_resample_mean))
+
+        if log_term and term_metrics is not None and term_causes is not None:
+            m = term_metrics
+            d = done
+
+            def _extend(key, tensor, mask):
+                if self._term_metric_lists.get(key) is None:
+                    self._term_metric_lists[key] = []
+                for val in tensor[mask]:
+                    self._term_metric_lists[key].append(val.item())
+
+            _extend("at_reset/root_vel_sq", m["root_vel_sq"], d)
+            _extend("at_reset/base_clearance", m["base_clearance"], d)
+            _extend("at_reset/max_term_contact_force", m["max_term_contact_force"], d)
+            _extend("at_reset/episode_length", m["episode_length"], d)
+
+            _extend("when_vel_cause/root_vel_sq", m["root_vel_sq"], d & (term_causes["vel"] > 0.5))
+            _extend("when_height_cause/base_clearance", m["base_clearance"], d & (term_causes["height"] > 0.5))
+            _extend(
+                "when_contact_cause/max_term_contact_force",
+                m["max_term_contact_force"],
+                d & (term_causes["contact"] > 0.5),
+            )
+            _extend(
+                "when_episode_timeout/episode_length",
+                m["episode_length"],
+                d & (term_causes["episode_timeout"] > 0.5),
+            )
 
         if write_record:
             for key in self.last_episode.keys():
@@ -116,6 +146,25 @@ class Recorder:
                     if self.cfg["runner"]["use_wandb"]:
                         wandb.log({path: tv}, step=it)
                     self._trunc_cmd_resample_means.clear()
+
+                tb_paths = {
+                    "at_reset/root_vel_sq": "termination/at_reset/mean_root_vel_sq",
+                    "at_reset/base_clearance": "termination/at_reset/mean_base_clearance_m",
+                    "at_reset/max_term_contact_force": "termination/at_reset/mean_max_term_contact_force",
+                    "at_reset/episode_length": "termination/at_reset/mean_episode_length",
+                    "when_vel_cause/root_vel_sq": "termination/when_vel_cause/mean_root_vel_sq",
+                    "when_height_cause/base_clearance": "termination/when_height_cause/mean_base_clearance_m",
+                    "when_contact_cause/max_term_contact_force": "termination/when_contact_cause/mean_max_term_contact_force",
+                    "when_episode_timeout/episode_length": "termination/when_episode_timeout/mean_episode_length",
+                }
+                for lk, path in tb_paths.items():
+                    lst = self._term_metric_lists.get(lk) or []
+                    v = self._mean(lst)
+                    self.writer.add_scalar(path, v, it)
+                    if self.cfg["runner"]["use_wandb"]:
+                        wandb.log({path: v}, step=it)
+                    if lk in self._term_metric_lists:
+                        self._term_metric_lists[lk].clear()
 
     def record_statistics(self, statistics, it):
         for key, value in statistics.items():
