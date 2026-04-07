@@ -313,7 +313,12 @@ class T2(BaseTask):
         self.filtered_ang_vel[env_ids] = 0.0
         self.cmd_resample_time[env_ids] = 0
 
-        self.delay_steps[env_ids] = torch.randint(0, self.cfg["control"]["decimation"], (len(env_ids),), device=self.device)
+        if "actuation_delay_steps" in self.cfg["control"]:
+            d = int(self.cfg["control"]["actuation_delay_steps"])
+            d = max(0, min(d, self.cfg["control"]["decimation"] - 1))
+            self.delay_steps[env_ids] = d
+        else:
+            self.delay_steps[env_ids] = torch.randint(0, self.cfg["control"]["decimation"], (len(env_ids),), device=self.device)
         self.extras["time_outs"] = self.time_out_buf
 
     def _reset_dofs(self, env_ids):
@@ -329,11 +334,15 @@ class T2(BaseTask):
         self.root_states[env_ids, :2] += self.env_origins[env_ids, :2]
         self.root_states[env_ids, :2] = apply_randomization(self.root_states[env_ids, :2], self.cfg["randomization"].get("init_base_pos_xy"))
         self.root_states[env_ids, 2] += self.terrain.terrain_heights(self.root_states[env_ids, :2])
-        self.root_states[env_ids, 3:7] = quat_from_euler_xyz(
-            torch.zeros(len(env_ids), dtype=torch.float, device=self.device),
-            torch.zeros(len(env_ids), dtype=torch.float, device=self.device),
-            torch.rand(len(env_ids), device=self.device) * (2 * torch.pi),
-        )
+        if self.cfg["init_state"].get("randomize_yaw", True):
+            self.root_states[env_ids, 3:7] = quat_from_euler_xyz(
+                torch.zeros(len(env_ids), dtype=torch.float, device=self.device),
+                torch.zeros(len(env_ids), dtype=torch.float, device=self.device),
+                torch.rand(len(env_ids), device=self.device) * (2 * torch.pi),
+            )
+        else:
+            quat = to_torch(self.cfg["init_state"]["rot"], device=self.root_states.device).to(dtype=self.root_states.dtype)
+            self.root_states[env_ids, 3:7] = quat.unsqueeze(0).expand(len(env_ids), -1)
         self.root_states[env_ids, 7:9] = apply_randomization(
             torch.zeros(len(env_ids), 2, dtype=torch.float, device=self.device),
             self.cfg["randomization"].get("init_base_lin_vel_xy"),
@@ -498,14 +507,21 @@ class T2(BaseTask):
 
     def _kick_robots(self):
         """Random kick the robots. Emulates an impulse by setting a randomized base velocity."""
-        if self.common_step_counter % np.ceil(self.cfg["randomization"]["kick_interval_s"] / self.dt) == 0:
+        kick_interval_s = self.cfg["randomization"].get("kick_interval_s")
+        if kick_interval_s is None:
+            return
+        if self.common_step_counter % np.ceil(kick_interval_s / self.dt) == 0:
             self.root_states[:, 7:10] = apply_randomization(self.root_states[:, 7:10], self.cfg["randomization"].get("kick_lin_vel"))
             self.root_states[:, 10:13] = apply_randomization(self.root_states[:, 10:13], self.cfg["randomization"].get("kick_ang_vel"))
             self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
 
     def _push_robots(self):
         """Random push the robots. Emulates an impulse by setting a randomized force."""
-        if self.common_step_counter % np.ceil(self.cfg["randomization"]["push_interval_s"] / self.dt) == 0:
+        push_interval_s = self.cfg["randomization"].get("push_interval_s")
+        push_duration_s = self.cfg["randomization"].get("push_duration_s")
+        if push_interval_s is None or push_duration_s is None:
+            return
+        if self.common_step_counter % np.ceil(push_interval_s / self.dt) == 0:
             self.pushing_forces[:, self.base_indice, :] = apply_randomization(
                 torch.zeros_like(self.pushing_forces[:, 0, :]),
                 self.cfg["randomization"].get("push_force"),
@@ -514,9 +530,7 @@ class T2(BaseTask):
                 torch.zeros_like(self.pushing_torques[:, 0, :]),
                 self.cfg["randomization"].get("push_torque"),
             )
-        elif self.common_step_counter % np.ceil(self.cfg["randomization"]["push_interval_s"] / self.dt) == np.ceil(
-            self.cfg["randomization"]["push_duration_s"] / self.dt
-        ):
+        elif self.common_step_counter % np.ceil(push_interval_s / self.dt) == np.ceil(push_duration_s / self.dt):
             self.pushing_forces[:, self.base_indice, :].zero_()
             self.pushing_torques[:, self.base_indice, :].zero_()
         self.gym.apply_rigid_body_force_tensors(

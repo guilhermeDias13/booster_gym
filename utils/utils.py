@@ -4,6 +4,8 @@ import numpy as np
 
 def apply_randomization(tensor, params, return_noise=False):
     if params == None:
+        if return_noise:
+            return tensor, 0.0
         return tensor
 
     if params["distribution"] == "gaussian":
