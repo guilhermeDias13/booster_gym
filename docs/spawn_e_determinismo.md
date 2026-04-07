@@ -227,6 +227,27 @@ Para comportamento **próximo do upstream oficial**, repor `randomize_yaw: true`
 
 ---
 
+## 7. Reset vs time-out e logging no TensorBoard
+
+Em `_check_termination` (`t1.py` / `t2.py`):
+
+- **`reset_buf`** (fim de episódio com reset físico): contato em `terminate_contacts_on`, velocidade da raiz acima de `terminate_vel`, altura da base abaixo de `terminate_height`, ou timeout longo (`episode_length_s`).
+- **`time_out_buf`** (truncagem para o PPO / bootstrap): inclui o timeout longo **e** o marco `episode_length_buf == cmd_resample_time` (reamostragem de comando). Este último **não** entra em `reset_buf`: o episódio continua, só se marcam truncações para o algoritmo.
+
+Em cada passo, `extras["time_outs"]` reflete o `time_out_buf` atual (para o [`Runner`](../utils/runner.py) gravar no buffer). Os dicionários `extras["term_causes"]`, `extras["term_primary"]` e `extras["trunc_cmd_resample"]` descrevem causas de **reset** e a fração de envs em reamostragem de comando.
+
+Com `runner.log_termination_reasons: true` (padrão no código se a chave faltar), o [`Recorder`](../utils/recorder.py) regista por iteração de treino:
+
+| Escalar | Significado |
+|---------|-------------|
+| `termination/frac_contact`, `frac_vel`, `frac_height`, `frac_episode_timeout` | Média das flags (0–1) nos ambientes que fizeram **reset** na janela do rollout; podem sobrepor-se se várias condições forem verdadeiras no mesmo passo. |
+| `termination/primary/contact`, `…/vel`, `…/height`, `…/episode_timeout` | Fração dos resets onde a causa “primária” foi essa, com prioridade: contacto > velocidade > altura > timeout de episódio (soma ~1 sobre os resets contabilizados). |
+| `truncation/frac_cmd_resample` | Média ao longo do rollout da fração de envs com `episode_length_buf == cmd_resample_time` (truncação por comando, **não** reset). |
+
+Defina `runner.log_termination_reasons: false` no YAML para desligar estes escalares.
+
+---
+
 ## Resumo
 
 | Objetivo | Onde |
@@ -237,5 +258,6 @@ Para comportamento **próximo do upstream oficial**, repor `randomize_yaw: true`
 | Sem domain randomization / kicks / pushes | `randomization: {}` (o código trata `kick_interval_s` / `push_*` ausentes) |
 | Sem jitter de atraso no comando | `control.actuation_delay_steps` definido |
 | Plano horizontal | `terrain.type: plane` |
+| Motivos de reset no TensorBoard | `runner.log_termination_reasons: true` (ver secção 7) |
 
 **Aviso:** treino com spawn e domínio muito fixos reduz diversidade; é útil para hipóteses e debug, mas tende a piorar generalização e sim-to-real em relação ao paper.

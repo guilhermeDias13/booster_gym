@@ -296,6 +296,7 @@ class T2(BaseTask):
         self._reset_idx(torch.arange(self.num_envs, device=self.device))
         self._resample_commands()
         self._compute_observations()
+        self.extras["time_outs"] = self.time_out_buf
         return self.obs_buf, self.extras
 
     def _reset_idx(self, env_ids):
@@ -319,7 +320,6 @@ class T2(BaseTask):
             self.delay_steps[env_ids] = d
         else:
             self.delay_steps[env_ids] = torch.randint(0, self.cfg["control"]["decimation"], (len(env_ids),), device=self.device)
-        self.extras["time_outs"] = self.time_out_buf
 
     def _reset_dofs(self, env_ids):
         self.dof_pos[env_ids] = apply_randomization(self.default_dof_pos, self.cfg["randomization"].get("init_dof_pos"))
@@ -564,12 +564,33 @@ class T2(BaseTask):
 
     def _check_termination(self):
         """Check if environments need to be reset"""
-        self.reset_buf = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1.0, dim=1)
-        self.reset_buf |= self.root_states[:, 7:13].square().sum(dim=-1) > self.cfg["rewards"]["terminate_vel"]
-        self.reset_buf |= self.base_pos[:, 2] - self.terrain.terrain_heights(self.base_pos) < self.cfg["rewards"]["terminate_height"]
-        self.time_out_buf = self.episode_length_buf > np.ceil(self.cfg["rewards"]["episode_length_s"] / self.dt)
-        self.reset_buf |= self.time_out_buf
-        self.time_out_buf |= self.episode_length_buf == self.cmd_resample_time
+        term_contact = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1.0, dim=1)
+        term_vel = self.root_states[:, 7:13].square().sum(dim=-1) > self.cfg["rewards"]["terminate_vel"]
+        term_height = self.base_pos[:, 2] - self.terrain.terrain_heights(self.base_pos) < self.cfg["rewards"]["terminate_height"]
+        term_episode_timeout = self.episode_length_buf > np.ceil(self.cfg["rewards"]["episode_length_s"] / self.dt)
+        term_cmd_resample = self.episode_length_buf == self.cmd_resample_time
+
+        self.time_out_buf = term_episode_timeout | term_cmd_resample
+        self.reset_buf = term_contact | term_vel | term_height | term_episode_timeout
+
+        self.extras["time_outs"] = self.time_out_buf
+
+        rb = self.reset_buf
+        self.extras["term_causes"] = {
+            "contact": (term_contact & rb).float(),
+            "vel": (term_vel & rb).float(),
+            "height": (term_height & rb).float(),
+            "episode_timeout": (term_episode_timeout & rb).float(),
+        }
+        primary = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        primary = torch.where(rb & term_contact, torch.ones_like(primary), primary)
+        primary = torch.where(rb & ~term_contact & term_vel, torch.full_like(primary, 2), primary)
+        primary = torch.where(rb & ~term_contact & ~term_vel & term_height, torch.full_like(primary, 3), primary)
+        primary = torch.where(
+            rb & ~term_contact & ~term_vel & ~term_height & term_episode_timeout, torch.full_like(primary, 4), primary
+        )
+        self.extras["term_primary"] = primary
+        self.extras["trunc_cmd_resample"] = term_cmd_resample.float()
 
     def _compute_reward(self):
         """Compute rewards

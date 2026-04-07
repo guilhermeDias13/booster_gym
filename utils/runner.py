@@ -118,7 +118,23 @@ class Runner:
                 self.buffer.update_data("time_outs", n, infos["time_outs"].to(self.device))
                 ep_info = {"reward": rew}
                 ep_info.update(infos["rew_terms"])
-                self.recorder.record_episode_statistics(done, ep_info, it, n == (self.cfg["runner"]["horizon_length"] - 1))
+                log_term = self.cfg["runner"].get("log_termination_reasons", True)
+                term_causes = None
+                term_primary = None
+                trunc_mean = None
+                if log_term:
+                    term_causes = {k: v.to(self.device) for k, v in infos["term_causes"].items()}
+                    term_primary = infos["term_primary"].to(self.device)
+                    trunc_mean = infos["trunc_cmd_resample"].float().mean().item()
+                self.recorder.record_episode_statistics(
+                    done,
+                    ep_info,
+                    it,
+                    n == (self.cfg["runner"]["horizon_length"] - 1),
+                    term_causes=term_causes,
+                    term_primary=term_primary,
+                    trunc_cmd_resample_mean=trunc_mean,
+                )
 
             with torch.no_grad():
                 old_dist = self.model.act(self.buffer["obses"])
