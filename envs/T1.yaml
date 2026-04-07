@@ -5,7 +5,7 @@ basic:
   sim_device: "cuda:0" # device for physics simulation
   rl_device: "cuda:0" # device for the RL algorithm
   seed: 42 # seed - set to -1 to choose random seed
-  description: ""
+  description: "Bootstrap do zero: curriculum + comandos modestos; ver blocos commands/rewards/algorithm"
 
 env:
   num_envs: 4096
@@ -29,7 +29,7 @@ viewer:
   record_env_idx: 0
 
 algorithm:
-  learning_rate: 1.e-5
+  learning_rate: 1.e-4 # bootstrap: mais rápido que 1e-5; scheduler no Runner ainda limita por KL
   gamma: 0.995
   lam: 0.95
   bound_coef: 1.0
@@ -117,24 +117,24 @@ terrain:
 
 commands:
   num_commands: 3 # default: lin_vel_x, lin_vel_y, ang_vel_yaw
-  still_proportion: 0.1
-  lin_vel_x: [-1.0, 1.0] # min max [m/s]
-  lin_vel_y: [-1.0, 1.0] # min max [m/s]
-  ang_vel_yaw: [-1, 1]   # min max [rad/s]
-  resampling_time_s: [8., 12.]
-  gait_frequency: [1.0, 2.0] # min max [Hz]
-  # curriculum only:
-  curriculum: false
+  # --- bootstrap: mais parado + grelha fina; com curriculum:true os intervalos lin_vel_* abaixo não amostram direto ---
+  still_proportion: 0.35
+  lin_vel_x: [-1.0, 1.0] # usado se curriculum: false
+  lin_vel_y: [-1.0, 1.0]
+  ang_vel_yaw: [-1, 1]
+  resampling_time_s: [4., 8.]
+  gait_frequency: [1.0, 1.4] # menos variação de marcha no início
+  curriculum: true
   update_rate: 0.1
   lin_vel_levels: 10
   ang_vel_levels: 10
-  lin_vel_x_resolution: 0.2 # [m/s]
-  lin_vel_y_resolution: 0.1 # [m/s]
-  ang_vel_resolution: 0.2 # [rad/s]
-  episode_length_toler: 0.1
-  lin_vel_x_toler: 0.4 # [m/s]
-  lin_vel_y_toler: 0.2 # [m/s]
-  ang_vel_yaw_toler: 0.2 # [rad/s]
+  lin_vel_x_resolution: 0.08 # passos de comando em x mais pequenos (~[-0.8,0.8] m/s com níveis +-10)
+  lin_vel_y_resolution: 0.05
+  ang_vel_resolution: 0.1
+  episode_length_toler: 0.08
+  lin_vel_x_toler: 0.5 # [m/s] mais largo para curriculum não bloquear cedo
+  lin_vel_y_toler: 0.25
+  ang_vel_yaw_toler: 0.3
 
 normalization:
   gravity: 1.0
@@ -155,8 +155,8 @@ rewards:
   scales:
     survival: 0.25
     tracking_lin_vel_x: 1.0
-    tracking_lin_vel_y: 1.0
-    tracking_ang_vel: 0.5
+    tracking_lin_vel_y: 0 # bootstrap: foco em frente/trás; repor 1.0 para tarefa completa
+    tracking_ang_vel: 0 # bootstrap: repor 0.5 quando reativar rotação
     base_height: -20.
     orientation: -5.
     torques: -2.e-4
@@ -184,7 +184,7 @@ rewards:
   terminate_vel: 50.
   terminate_contacts_on: []
   penalize_contacts_on: ["Trunk", "H1", "H2", "AL", "AR", "Waist", "Hip", "Shank", "Ankle"]
-  only_positive_rewards: true # if true negative total rewards are clipped at zero (avoids early termination problems)
+  only_positive_rewards: false # bootstrap: sinal completo; repor true para fine-tuning se oscilar
   tracking_sigma: 0.25 # tracking reward = exp(-error^2/sigma)
   base_height_target: 0.68
   soft_dof_pos_limit: 1. # percentage of urdf limits, values above this limit are penalized
