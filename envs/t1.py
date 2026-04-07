@@ -686,6 +686,10 @@ class T1(BaseTask):
         # Penalize xy axes base angular velocity
         return torch.sum(torch.square(self.base_ang_vel[:, :2]), dim=-1)
 
+    def _reward_ang_vel_yaw(self):
+        # Penalize yaw rate in body frame (spin about trunk axis); complements ang_vel_xy
+        return torch.square(self.base_ang_vel[:, 2])
+
     def _reward_orientation(self):
         # Penalize non flat base orientation
         return torch.sum(torch.square(self.projected_gravity[:, :2]), dim=-1)
