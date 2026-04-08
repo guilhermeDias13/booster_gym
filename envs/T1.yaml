@@ -5,7 +5,7 @@ basic:
   sim_device: "cuda:0" # device for physics simulation
   rl_device: "cuda:0" # device for the RL algorithm
   seed: 42 # seed - set to -1 to choose random seed
-  description: "Bootstrap + anti-acrobacia: PPO mais conservador, postura/rotação penalizadas, tracking vx moderado"
+  description: "Anti-acrobacia v2: PPO mais frio, penalidades fortes, trunk no chão = reset"
 
 env:
   num_envs: 4096
@@ -16,7 +16,7 @@ env:
 
 runner:
   horizon_length: 24
-  mini_epochs: 15 # menos passos PPO por batch = updates um pouco mais conservadores
+  mini_epochs: 12
   save_interval: 100
   use_wandb: false
   log_termination_reasons: true # TensorBoard/WandB: termination/* e truncation/frac_cmd_resample
@@ -29,13 +29,13 @@ viewer:
   record_env_idx: 0
 
 algorithm:
-  learning_rate: 5.e-5 # menos agressivo que 1e-4 para evitar saltar para mortais/local min estranhos
+  learning_rate: 3.e-5
   gamma: 0.995
   lam: 0.95
-  bound_coef: 1.0
-  entropy_coef: -0.003 # menos incentivo a exploração brusca que -0.01; 0 = sem bónus de entropia
+  bound_coef: 1.2 # um pouco mais de pressão para manter ações no intervalo
+  entropy_coef: 0.0 # sem bónus de entropia → menos política “louca” no início
   symmetric_coef: 10.
-  desired_kl: 0.008 # atualizações de política um pouco mais pequenas
+  desired_kl: 0.006
 
 sim:
   dt: 0.002
@@ -118,19 +118,19 @@ terrain:
 commands:
   num_commands: 3 # default: lin_vel_x, lin_vel_y, ang_vel_yaw
   # --- bootstrap: mais parado + grelha fina; com curriculum:true os intervalos lin_vel_* abaixo não amostram direto ---
-  still_proportion: 0.48 # mais tempo com comando zero → aprender equilíbrio antes de correr
+  still_proportion: 0.58
   lin_vel_x: [-1.0, 1.0] # usado se curriculum: false
   lin_vel_y: [-1.0, 1.0]
   ang_vel_yaw: [-1, 1]
   resampling_time_s: [4., 8.]
-  gait_frequency: [1.0, 1.22] # ainda mais estável; menos “saltos” de marcha
+  gait_frequency: [1.0, 1.1]
   curriculum: true
-  update_rate: 0.06 # curriculum sobe mais devagar
+  update_rate: 0.05
   lin_vel_levels: 10
   ang_vel_levels: 10
   lin_vel_x_resolution: 0.08 # passos de comando em x mais pequenos (~[-0.8,0.8] m/s com níveis +-10)
   lin_vel_y_resolution: 0.05
-  ang_vel_resolution: 0.1
+  ang_vel_resolution: 0.06 # comandos de yaw mais pequenos na grelha
   episode_length_toler: 0.08
   lin_vel_x_toler: 0.5 # [m/s] mais largo para curriculum não bloquear cedo
   lin_vel_y_toler: 0.25
@@ -154,21 +154,21 @@ randomization: {}
 rewards:
   scales:
     survival: 0.25
-    tracking_lin_vel_x: 0.65 # menos pressa em vx → menos “ganhar a qualquer custo” com mortal/cambalhota
-    tracking_lin_vel_y: 0 # bootstrap: foco em frente/trás; repor 1.0 para tarefa completa
-    tracking_ang_vel: 0 # bootstrap: repor 0.5 quando reativar rotação
-    base_height: -22. # ligeiramente mais peso em manter altura alvo
-    orientation: -8. # penaliza tronco inclinado (mortais/cambalhotas)
-    torques: -2.e-4
+    tracking_lin_vel_x: 0.4 # ainda menos pressão para “voar” de costas com vx
+    tracking_lin_vel_y: 0
+    tracking_ang_vel: 0
+    base_height: -30.
+    orientation: -14. # tronco alinhado com vertical
+    torques: -2.8e-4
     torque_tiredness: -1.e-2
-    power: -2.e-3
-    lin_vel_z: -3. # menos impulso vertical
-    ang_vel_xy: -0.55 # roll/pitch do tronco (típico de estrelinha/mortal)
-    ang_vel_yaw: -0.45 # ω_z corpo; corrigido de -2.35 (typo); subir módulo se ainda girar muito
+    power: -3.e-3
+    lin_vel_z: -5.
+    ang_vel_xy: -1.15 # roll/pitch fortes = estrelinha
+    ang_vel_yaw: -1.0
     dof_vel: -1.e-4
     dof_acc: -1.e-7
-    root_acc: -3.e-4 # menos solavanco do tronco
-    action_rate: -1.6 # ações mais suaves
+    root_acc: -8.e-4
+    action_rate: -2.8
     dof_pos_limits: -1.
     dof_vel_limits: -0.
     torque_limits: -0.
@@ -179,15 +179,16 @@ rewards:
     feet_yaw_mean: -1.
     feet_roll: -0.1
     feet_distance: -1.
-    feet_swing: 1.8 # menos recompensa por balanço grande de pernas (facilita acrobacias)
+    feet_swing: 0 # remove incentivo a balanço de pernas (escala 0 = termo omitido no env)
   episode_length_s: 30.
   terminate_height: 0.45
-  # Corta episódios com rotação/velocidade extrema antes do mortal completo (ajustar se morrer cedo demais)
-  terminate_vel: 2200.
-  terminate_contacts_on: []
+  # Mais apertado: corta antes de rotações muito grandes (subir se reset por vel for excessivo)
+  terminate_vel: 1400.
+  # Tronco no chão = fim (cambalhota costuma pousar Trunk). H1/H2 se tiverem colisão no URDF.
+  terminate_contacts_on: ["Trunk", "H1", "H2"]
   penalize_contacts_on: ["Trunk", "H1", "H2", "AL", "AR", "Waist", "Hip", "Shank", "Ankle"]
   only_positive_rewards: false # bootstrap: sinal completo; repor true para fine-tuning se oscilar
-  tracking_sigma: 0.2 # tracking um pouco mais “exigente” (menos recompensa com erro grande)
+  tracking_sigma: 0.18
   base_height_target: 0.68
   soft_dof_pos_limit: 1. # percentage of urdf limits, values above this limit are penalized
   soft_dof_vel_limit: 1.
