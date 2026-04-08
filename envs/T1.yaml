@@ -5,7 +5,7 @@ basic:
   sim_device: "cuda:0" # device for physics simulation
   rl_device: "cuda:0" # device for the RL algorithm
   seed: 42 # seed - set to -1 to choose random seed
-  description: "Anti-acrobacia v2: PPO mais frio, penalidades fortes, trunk no chão = reset"
+  description: "Equilíbrio antes de velocidade: terminate_vel alto (só explosões), tracking vx fraco, comandos lentos"
 
 env:
   num_envs: 4096
@@ -117,8 +117,9 @@ terrain:
 
 commands:
   num_commands: 3 # default: lin_vel_x, lin_vel_y, ang_vel_yaw
-  # --- bootstrap: mais parado + grelha fina; com curriculum:true os intervalos lin_vel_* abaixo não amostram direto ---
-  still_proportion: 0.58
+  # frac_vel ~100% com terminate_vel baixo: o agente tenta cumprir vx e bate no teto antes de “cair devagar”.
+  # Aqui: maior still + menor resolução em x = comandos de marcha lentos; a política não é paga para ir rápido.
+  still_proportion: 0.72
   lin_vel_x: [-1.0, 1.0] # usado se curriculum: false
   lin_vel_y: [-1.0, 1.0]
   ang_vel_yaw: [-1, 1]
@@ -128,9 +129,10 @@ commands:
   update_rate: 0.05
   lin_vel_levels: 10
   ang_vel_levels: 10
-  lin_vel_x_resolution: 0.08 # passos de comando em x mais pequenos (~[-0.8,0.8] m/s com níveis +-10)
-  lin_vel_y_resolution: 0.05
-  ang_vel_resolution: 0.06 # comandos de yaw mais pequenos na grelha
+  # |vx| máx na grelha ≈ nível * resolução → 10*0.032 ≈ 0.32 m/s (antes ~0.8 m/s com 0.08)
+  lin_vel_x_resolution: 0.032
+  lin_vel_y_resolution: 0.04
+  ang_vel_resolution: 0.05
   episode_length_toler: 0.08
   lin_vel_x_toler: 0.5 # [m/s] mais largo para curriculum não bloquear cedo
   lin_vel_y_toler: 0.25
@@ -153,8 +155,9 @@ randomization: {}
 
 rewards:
   scales:
-    survival: 0.25
-    tracking_lin_vel_x: 0.4 # ainda menos pressão para “voar” de costas com vx
+    # Sobrevivência domina sobre vx: ambos ~1 por passo no termo bruto; escala ~30× maior em survival
+    survival: 1.35
+    tracking_lin_vel_x: 0.04
     tracking_lin_vel_y: 0
     tracking_ang_vel: 0
     base_height: -30.
@@ -181,9 +184,10 @@ rewards:
     feet_distance: -1.
     feet_swing: 0 # remove incentivo a balanço de pernas (escala 0 = termo omitido no env)
   episode_length_s: 30.
-  terminate_height: 0.45
-  # Mais apertado: corta antes de rotações muito grandes (subir se reset por vel for excessivo)
-  terminate_vel: 1400.
+  # Um pouco mais exigente: falha por “afundar” antes de só bater em terminate_vel
+  terminate_height: 0.48
+  # Alto de propósito: só corta explosões; queda normal → terminate_height / contacto / timeout
+  terminate_vel: 8500.
   # Tronco no chão = fim (cambalhota costuma pousar Trunk). H1/H2 se tiverem colisão no URDF.
   terminate_contacts_on: ["Trunk", "H1", "H2"]
   penalize_contacts_on: ["Trunk", "H1", "H2", "AL", "AR", "Waist", "Hip", "Shank", "Ankle"]
