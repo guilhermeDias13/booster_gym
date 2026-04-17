@@ -18,7 +18,7 @@ runner:
   horizon_length: 24
   mini_epochs: 20
   save_interval: 100
-  use_wandb: true
+  use_wandb: false
   log_termination_reasons: true # TensorBoard/WandB: termination/* e truncation/frac_cmd_resample
 
 viewer:
@@ -94,6 +94,7 @@ control:
   stiffness: {"Hip": 200., "Knee": 200., "Ankle": 50.} # [N*m/rad]
   damping: {"Hip": 5., "Knee": 5., "Ankle": 1.} # [N*m*s/rad]
   action_scale: 1.
+  torque_limit_scale: 1.0
   decimation: 10
   actuation_delay_steps: 0 # omitir esta chave = atraso aleatório [0, decimation) por env (original)
 
@@ -164,7 +165,7 @@ rewards:
     power: -2.e-3
     lin_vel_z: -2.
     ang_vel_xy: -0.2
-    ang_vel_yaw: -2.35 # body-frame ω_z ao quadrado; com tracking_ang_vel>0 repor 0 ou reduzir (conflita com giro comandado)
+    ang_vel_yaw: -0.35 # body-frame ω_z ao quadrado; com tracking_ang_vel>0 repor 0 ou reduzir (conflita com giro comandado)
     dof_vel: -1.e-4
     dof_acc: -1.e-7
     root_acc: -1.e-4
@@ -182,8 +183,8 @@ rewards:
     feet_swing: 5.
   episode_length_s: 30.
   terminate_height: 0.45
-  terminate_vel: 50.
-  terminate_contacts_on: []
+  terminate_vel: 9000.
+  terminate_contacts_on: ["Trunk", "H1", "H2", "left_hand_link", "right_hand_link"]
   penalize_contacts_on: ["Trunk", "H1", "H2", "AL", "AR", "Waist", "Hip", "Shank", "Ankle"]
   only_positive_rewards: true # if true negative total rewards are clipped at zero (avoids early termination problems)
   tracking_sigma: 0.25 # tracking reward = exp(-error^2/sigma)

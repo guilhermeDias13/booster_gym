@@ -95,6 +95,8 @@ control:
   stiffness: {"Hip": 140., "Knee": 140., "Ankle": 36.} # [N*m/rad]
   damping: {"Hip": 3.5, "Knee": 3.5, "Ankle": 0.75} # [N*m*s/rad]
   action_scale: 0.82 # alvo de posição = default + scale*ação; reduz pico de binário
+  # Multiplica effort do URDF para o clip de torque na simulação (omitir = 1.0)
+  torque_limit_scale: 0.50
   decimation: 10
   actuation_delay_steps: 0 # omitir esta chave = atraso aleatório [0, decimation) por env (original)
 

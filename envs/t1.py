@@ -66,6 +66,9 @@ class T1(BaseTask):
             self.dof_vel_limits[i] = dof_props_asset["velocity"][i].item()
             self.torque_limits[i] = dof_props_asset["effort"][i].item()
 
+        torque_limit_scale = float(self.cfg["control"].get("torque_limit_scale", 1.0))
+        self.torque_limits.mul_(torque_limit_scale)
+
         self.dof_stiffness = torch.zeros(self.num_envs, self.num_dofs, dtype=torch.float, device=self.device)
         self.dof_damping = torch.zeros(self.num_envs, self.num_dofs, dtype=torch.float, device=self.device)
         self.dof_friction = torch.zeros(self.num_envs, self.num_dofs, dtype=torch.float, device=self.device)
