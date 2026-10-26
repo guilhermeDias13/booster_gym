@@ -184,3 +184,11 @@ $ python export_model.py --task=T1 --checkpoint=-1
 ```
 
 After exporting the model, follow the steps in [Deploy on Booster Robot](deploy/README.md) to complete the deployment process.
+
+## Reproducing the archived T0 and T1 sprints
+
+To train T0 and both T1 sprint variants from scratch, follow
+[TREINAMENTO.md](TREINAMENTO.md). The guide covers all four symmetry methods,
+the 12-to-21-DoF checkpoint expansion, and how to evaluate newly trained
+policies. Evaluation commands and outputs are documented in
+[eval/README.md](eval/README.md).

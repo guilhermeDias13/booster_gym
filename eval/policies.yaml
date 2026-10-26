@@ -1,0 +1,107 @@
+# Políticas avaliadas. Caminhos relativos à raiz do repo (local) ou a /app/eval_ws (Vast).
+# checkpoint: sempre .../nn/model_10000.pth; o config.yaml da run fica na pasta acima de nn/.
+# experiments: E1_locked | E1_free | E2 | SANITY. stage1 (opcional) substitui as combinações da etapa 1.
+
+defaults:
+  gait_range: [1.5, 3.5]
+  gait_freq: 2.5
+  start: T0
+
+policies:
+  # ---------------- E1_locked (12 DoF, braços travados) ----------------
+  - name: E1_locked_BASE
+    task: T1_sprint_arms_locked
+    code: T1_sprint_arms_locked/code
+    checkpoint: T1_sprint_arms_locked/iterations/2026-09-20_v1/BASE/logs/2026-09-20-21-01-54/nn/model_10000.pth
+    symmetry: none
+    arms: locked
+    tool: none
+    campaign: arms_locked_2026-09-20_v1
+    experiments: [E1_locked, E2]
+  - name: E1_locked_dup
+    task: T1_sprint_arms_locked
+    code: T1_sprint_arms_locked/code
+    checkpoint: T1_sprint_arms_locked/iterations/2026-09-20_v1/dup/logs/2026-09-21-12-02-13/nn/model_10000.pth
+    symmetry: dup
+    arms: locked
+    tool: none
+    campaign: arms_locked_2026-09-20_v1
+    experiments: [E1_locked, E2]
+  - name: E1_locked_loss
+    task: T1_sprint_arms_locked
+    code: T1_sprint_arms_locked/code
+    checkpoint: T1_sprint_arms_locked/iterations/2026-09-20_v1/loss/logs/2026-09-22-03-11-16/nn/model_10000.pth
+    symmetry: loss
+    arms: locked
+    tool: none
+    campaign: arms_locked_2026-09-20_v1
+    experiments: [E1_locked, E2]
+  - name: E1_locked_phase
+    task: T1_sprint_arms_locked
+    code: T1_sprint_arms_locked/code
+    checkpoint: T1_sprint_arms_locked/iterations/2026-09-20_v1/phase/logs/2026-10-20-05-26-56/nn/model_10000.pth
+    symmetry: phase
+    arms: locked
+    tool: none
+    campaign: arms_locked_2026-09-20_v1
+    experiments: [E1_locked, E2]
+
+  # ---------------- E1_free (21 DoF, braços livres, joint_deviation -1) ----------------
+  - name: E1_free_BASE
+    task: T1_sprint_arms_not_locked
+    code: T1_sprint_arms_not_locked/code
+    checkpoint: T1_sprint_arms_not_locked/iterations/joint_dev_minus_1/BASE/logs/nn/model_10000.pth
+    symmetry: none
+    arms: free
+    tool: none
+    campaign: arms_free_jd1
+    experiments: [E1_free, E2]
+  - name: E1_free_dup
+    task: T1_sprint_arms_not_locked
+    code: T1_sprint_arms_not_locked/code
+    checkpoint: T1_sprint_arms_not_locked/iterations/joint_dev_minus_1/dup/logs/nn/model_10000.pth
+    symmetry: dup
+    arms: free
+    tool: none
+    campaign: arms_free_jd1
+    experiments: [E1_free, E2]
+  - name: E1_free_loss
+    task: T1_sprint_arms_not_locked
+    code: T1_sprint_arms_not_locked/code
+    checkpoint: T1_sprint_arms_not_locked/iterations/joint_dev_minus_1/loss/logs/nn/model_10000.pth
+    symmetry: loss
+    arms: free
+    tool: none
+    campaign: arms_free_jd1
+    experiments: [E1_free, E2]
+  - name: E1_free_phase
+    task: T1_sprint_arms_not_locked
+    code: T1_sprint_arms_not_locked/code
+    checkpoint: T1_sprint_arms_not_locked/iterations/joint_dev_minus_1/phase/logs/nn/model_10000.pth
+    symmetry: phase
+    arms: free
+    tool: none
+    campaign: arms_free_jd1
+    experiments: [E1_free, E2]
+
+  # ---------------- Sanidade: T0 (caminhada omnidirecional) ----------------
+  - name: T0_walk
+    task: T0
+    code: .
+    checkpoint: T0/iterations/2026-08-21_v1/logs/2026-08-21-14-44-42/nn/model_10000.pth
+    symmetry: none
+    gait_range: [1.0, 2.0]
+    gait_freq: 1.5
+    arms: locked
+    tool: none
+    start: scratch
+    campaign: t0
+    experiments: [SANITY]
+    stage1:
+      - {vcmd: 0.7, distance: 9}
+      - {vcmd: 1.0, distance: 55}
+      - {vcmd: 1.0, distance: 55, twin: true}
+      - {vcmd: 0.7, distance: 55}
+      - {vcmd: 0.7, distance: 55, twin: true}
+      - {vcmd: 0.4, distance: 55}
+      - {vcmd: 0.4, distance: 55, twin: true}

@@ -232,6 +232,8 @@ class T1(BaseTask):
         self.last_root_vel = torch.zeros_like(self.root_states[:, 7:13])
         self.last_dof_targets = torch.zeros(self.num_envs, self.num_dofs, dtype=torch.float, device=self.device)
         self.delay_steps = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self.eval_mode = False
+        self.eval_feet_fz = torch.zeros(self.num_envs, self.cfg["control"]["decimation"], 2, dtype=torch.float, device=self.device)
         self.torques = torch.zeros(self.num_envs, self.num_dofs, dtype=torch.float, device=self.device)
         self.commands = torch.zeros(self.num_envs, self.cfg["commands"]["num_commands"], dtype=torch.float, device=self.device)
         self.cmd_resample_time = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
@@ -453,6 +455,9 @@ class T1(BaseTask):
                 self.gym.fetch_results(self.sim, True)
             self.gym.refresh_dof_state_tensor(self.sim)
             self.gym.refresh_dof_force_tensor(self.sim)
+            if self.eval_mode:
+                self.gym.refresh_net_contact_force_tensor(self.sim)
+                self.eval_feet_fz[:, i] = self.contact_forces[:, self.feet_indices, 2]
         self.torques /= self.cfg["control"]["decimation"]
         self.render()
 
@@ -728,3 +733,9 @@ class T1(BaseTask):
         left_swing = (torch.abs(self.gait_process - 0.25) < 0.5 * self.cfg["rewards"]["swing_period"]) & (self.gait_frequency > 1.0e-8)
         right_swing = (torch.abs(self.gait_process - 0.75) < 0.5 * self.cfg["rewards"]["swing_period"]) & (self.gait_frequency > 1.0e-8)
         return (left_swing & ~self.feet_contact[:, 0]).float() + (right_swing & ~self.feet_contact[:, 1]).float()
+
+
+class T0(T1):
+    """Omnidirectional walk with T1_locomotion (upper-body joints fixed)."""
+
+    pass
